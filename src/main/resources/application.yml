@@ -1,6 +1,12 @@
 spring:
   application:
     name: fei-ai-zero-code-development-backend
+  # mysql
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/fei_ai_zero_code_development
+    username: root
+    password: root
 server:
   port: 8123
   servlet:
