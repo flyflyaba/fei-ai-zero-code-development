@@ -1,4 +1,4 @@
-package com.fei.feiaizerocodedevelopment.model.dto;
+package com.fei.feiaizerocodedevelopment.model.dto.user;
 
 import com.fei.feiaizerocodedevelopment.common.PageRequest;
 import lombok.Data;

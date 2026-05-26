@@ -5,7 +5,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.fei.feiaizerocodedevelopment.exception.BusinessException;
 import com.fei.feiaizerocodedevelopment.exception.ErrorCode;
-import com.fei.feiaizerocodedevelopment.model.dto.UserQueryRequest;
+import com.fei.feiaizerocodedevelopment.model.dto.user.UserQueryRequest;
 import com.fei.feiaizerocodedevelopment.model.enums.UserRoleEnum;
 import com.fei.feiaizerocodedevelopment.model.vo.LoginUserVO;
 import com.fei.feiaizerocodedevelopment.model.vo.UserVO;

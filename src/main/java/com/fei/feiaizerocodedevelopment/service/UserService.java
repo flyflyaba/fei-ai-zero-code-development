@@ -1,6 +1,6 @@
 package com.fei.feiaizerocodedevelopment.service;
 
-import com.fei.feiaizerocodedevelopment.model.dto.UserQueryRequest;
+import com.fei.feiaizerocodedevelopment.model.dto.user.UserQueryRequest;
 import com.fei.feiaizerocodedevelopment.model.vo.LoginUserVO;
 import com.fei.feiaizerocodedevelopment.model.vo.UserVO;
 import com.mybatisflex.core.query.QueryWrapper;

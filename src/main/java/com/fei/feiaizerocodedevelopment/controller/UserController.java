@@ -9,7 +9,7 @@ import com.fei.feiaizerocodedevelopment.constant.UserConstant;
 import com.fei.feiaizerocodedevelopment.exception.BusinessException;
 import com.fei.feiaizerocodedevelopment.exception.ErrorCode;
 import com.fei.feiaizerocodedevelopment.exception.ThrowUtils;
-import com.fei.feiaizerocodedevelopment.model.dto.*;
+import com.fei.feiaizerocodedevelopment.model.dto.user.*;
 import com.fei.feiaizerocodedevelopment.model.entity.User;
 import com.fei.feiaizerocodedevelopment.model.vo.LoginUserVO;
 import com.fei.feiaizerocodedevelopment.model.vo.UserVO;

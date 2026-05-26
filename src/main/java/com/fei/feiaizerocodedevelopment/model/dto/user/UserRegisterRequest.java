@@ -1,4 +1,4 @@
-package com.fei.feiaizerocodedevelopment.model.dto;
+package com.fei.feiaizerocodedevelopment.model.dto.user;
 
 import lombok.Data;
 
