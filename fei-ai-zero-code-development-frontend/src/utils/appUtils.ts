@@ -1,15 +1,14 @@
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
-import { envConfig } from '@/config/env'
+import { getStaticPreviewUrl } from '@/config/env'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
 
 /** 获取应用静态预览地址 */
 export function getAppPreviewUrl(app: API.AppVO): string {
-  const deployKey = `${app.codeGenType}_${app.id}`
-  return `${envConfig.staticBaseUrl}/${deployKey}/`
+  return getStaticPreviewUrl(app.codeGenType ?? '', app.id ?? '')
 }
 
 /** 格式化相对创建时间 */

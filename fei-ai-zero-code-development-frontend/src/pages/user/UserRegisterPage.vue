@@ -1,7 +1,10 @@
 <template>
-  <div id="userRegisterPage">
-    <h2 class="title">飞哥 AI 应用生成 - 用户注册</h2>
-    <div class="desc">不需要写一行代码，就能生成完整应用</div>
+  <AuthFormLayout
+    title="飞哥 AI 应用生成 - 用户注册"
+    tip-text="已有账号"
+    tip-link="/user/login"
+    tip-link-text="去登录"
+  >
     <a-form :model="formState" name="basic" autocomplete="off" @finish="handleSubmit">
       <a-form-item name="userAccount" :rules="[{ required: true, message: '请输入账号！' }]">
         <a-input v-model:value="formState.userAccount" placeholder="请输入账号" />
@@ -22,24 +25,17 @@
         :rules="[
           { required: true, message: '请再次输入密码！' },
           { min: 8, message: '密码长度不能小于8位！' },
-          {
-            validator: validateConfirmPassword,
-          },
+          { validator: validateConfirmPassword },
         ]"
       >
         <a-input-password v-model:value="formState.checkPassword" placeholder="请再次输入密码" />
       </a-form-item>
 
-      <div class="tips">
-        已有账号
-        <RouterLink to="/user/login">去登录</RouterLink>
-      </div>
-
       <a-form-item>
         <a-button type="primary" html-type="submit" style="width: 100%"> 注册 </a-button>
       </a-form-item>
     </a-form>
-  </div>
+  </AuthFormLayout>
 </template>
 
 <script lang="ts" setup>
@@ -47,6 +43,7 @@ import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { userRegister } from '@/api/userController.ts'
+import AuthFormLayout from '@/components/AuthFormLayout.vue'
 
 const formState = reactive<API.UserRegisterRequest>({
   userAccount: '',
@@ -56,9 +53,6 @@ const formState = reactive<API.UserRegisterRequest>({
 
 const router = useRouter()
 
-/**
- * 校验二次密码
- */
 const validateConfirmPassword = async (_rule: any, value: string) => {
   if (!value) {
     return Promise.reject('请再次输入密码！')
@@ -69,10 +63,6 @@ const validateConfirmPassword = async (_rule: any, value: string) => {
   return Promise.resolve()
 }
 
-/**
- * 提交表单
- * @param values
- */
 const handleSubmit = async (values: any) => {
   const res = await userRegister(values)
   if (res.data.code === 0 && res.data.data) {
@@ -86,28 +76,3 @@ const handleSubmit = async (values: any) => {
   }
 }
 </script>
-
-<style>
-#userRegisterPage {
-  max-width: 480px;
-  margin: 0 auto;
-}
-
-.title {
-  text-align: center;
-  margin-bottom: 16px;
-}
-
-.desc {
-  text-align: center;
-  color: #bbb;
-  margin-bottom: 16px;
-}
-
-.tips {
-  text-align: right;
-  color: #bbb;
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-</style>

@@ -19,8 +19,9 @@
           style="width: 160px"
           allow-clear
         >
-          <a-select-option value="multi_file">原生多文件模式</a-select-option>
-          <a-select-option value="html">原生单文件模式</a-select-option>
+          <a-select-option v-for="opt in CODE_GEN_TYPE_OPTIONS" :key="opt.value" :value="opt.value">
+            {{ opt.label }}
+          </a-select-option>
         </a-select>
       </a-form-item>
       <a-form-item label="优先级">
@@ -49,7 +50,7 @@
           <span v-else>-</span>
         </template>
         <template v-else-if="column.dataIndex === 'codeGenType'">
-          {{ codeGenTypeLabel(record.codeGenType) }}
+          {{ getCodeGenTypeLabel(record.codeGenType) }}
         </template>
         <template v-else-if="column.dataIndex === 'user'">
           <a-space v-if="record.user" :size="8">
@@ -97,13 +98,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { message } from 'ant-design-vue'
 import { deleteAppByAdmin, listAppVoByPageByAdmin, updateAppByAdmin } from '@/api/appController.ts'
-
-const codeGenTypeMap: Record<string, string> = {
-  html: '原生单文件模式',
-  multi_file: '原生多文件模式',
-  react: '用户应用',
-}
-const codeGenTypeLabel = (type?: string) => codeGenTypeMap[type ?? ''] ?? (type || '-')
+import { CODE_GEN_TYPE_OPTIONS, getCodeGenTypeLabel } from '@/enums/codeGenType'
 
 const columns = [
   { title: 'id', dataIndex: 'id', width: 80 },

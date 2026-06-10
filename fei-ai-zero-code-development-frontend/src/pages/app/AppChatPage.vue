@@ -17,6 +17,7 @@ import { chatToGenCodeSSE } from '@/utils/sse.ts'
 import { getAppPreviewUrl } from '@/utils/appUtils.ts'
 import logoImg from '@/assets/logo.png'
 import { toIdString } from '@/utils/id.ts'
+import { getErrorMessage } from '@/utils/requestUtils.ts'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import ChatMessageContent from '@/components/ChatMessageContent.vue'
 
@@ -104,10 +105,7 @@ const loadAppInfo = async () => {
       router.push('/')
     }
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { message?: string } }; message?: string }
-    message.error(
-      '获取应用信息失败：' + (err?.response?.data?.message || err?.message || '网络异常'),
-    )
+    message.error('获取应用信息失败：' + getErrorMessage(error))
     router.push('/')
   }
 }
@@ -163,8 +161,7 @@ const handleDeploy = async () => {
       message.error('部署失败，' + res.data.message)
     }
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { message?: string } }; message?: string }
-    message.error('部署失败：' + (err?.response?.data?.message || err?.message || '网络异常'))
+    message.error('部署失败：' + getErrorMessage(error))
   } finally {
     deploying.value = false
   }
@@ -190,8 +187,7 @@ const handleDeleteApp = async () => {
       message.error('删除失败，' + res.data.message)
     }
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { message?: string } }; message?: string }
-    message.error('删除失败：' + (err?.response?.data?.message || err?.message || '网络异常'))
+    message.error('删除失败：' + getErrorMessage(error))
   } finally {
     deleting.value = false
   }
@@ -222,6 +218,9 @@ onMounted(async () => {
     <div class="chat-main">
       <!-- 左侧对话区 -->
       <div class="chat-panel">
+        <div class="chat-header">
+          <span class="chat-app-name">{{ appInfo.appName || '未命名应用' }}</span>
+        </div>
         <div ref="messagesRef" class="messages-area">
           <template v-for="(msg, index) in messages" :key="index">
             <!-- 用户消息 -->
@@ -434,6 +433,19 @@ onMounted(async () => {
   min-height: 0;
   background: #fff;
   border-right: 1px solid #f0f0f0;
+}
+
+.chat-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.chat-app-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 .messages-area {

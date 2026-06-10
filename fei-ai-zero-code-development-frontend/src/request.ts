@@ -1,14 +1,14 @@
 import axios from 'axios'
 import JSONBig from 'json-bigint'
 import { message } from 'ant-design-vue'
-import { API_BASE } from '@/constants/api.ts'
+import { API_BASE_URL } from '@/config/env'
 
 // 雪花 ID 超出 JS Number 安全范围，需按字符串解析
 const jsonBigString = JSONBig({ storeAsString: true })
 
 // 创建 Axios 实例
 const myAxios = axios.create({
-  baseURL: API_BASE,
+  baseURL: API_BASE_URL,
   timeout: 60000,
   withCredentials: true,
   transformResponse: [

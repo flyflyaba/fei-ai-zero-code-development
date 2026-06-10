@@ -1,4 +1,4 @@
-import { API_BASE } from '@/constants/api.ts'
+import { API_BASE_URL } from '@/config/env'
 
 export interface SSEHandlers {
   onMessage: (data: string) => void
@@ -55,7 +55,7 @@ export async function chatToGenCodeSSE(
   handlers: SSEHandlers,
 ): Promise<void> {
   const { onMessage, onDone, onError } = handlers
-  const url = `${API_BASE}/app/chat/gen/code?appId=${appId}&message=${encodeURIComponent(message)}`
+  const url = `${API_BASE_URL}/app/chat/gen/code?appId=${appId}&message=${encodeURIComponent(message)}`
 
   try {
     const response = await fetch(url, {

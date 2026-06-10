@@ -2,15 +2,12 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
-import {
-  ArrowUpOutlined,
-  PaperClipOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons-vue'
+import { ArrowUpOutlined, PaperClipOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 import { addApp, listGoodAppVoByPage, listMyAppVoByPage } from '@/api/appController.ts'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import AppCard from '@/components/AppCard.vue'
 import { toIdString } from '@/utils/id.ts'
+import { getErrorMessage } from '@/utils/requestUtils.ts'
 
 const router = useRouter()
 const loginUserStore = useLoginUserStore()
@@ -127,10 +124,7 @@ const handleCreateApp = async () => {
       message.error('创建失败：' + (res.data.message || '未知错误'))
     }
   } catch (error: unknown) {
-    const err = error as { response?: { data?: { message?: string } }; message?: string }
-    message.error(
-      '创建失败：' + (err?.response?.data?.message || err?.message || '网络异常，请确认后端已启动'),
-    )
+    message.error('创建失败：' + getErrorMessage(error, '网络异常，请确认后端已启动'))
   } finally {
     creating.value = false
   }
@@ -146,6 +140,14 @@ const goToAppChat = (app: API.AppVO) => {
     return
   }
   router.push(`/app/chat/${id}`)
+}
+
+const goToGoodAppChat = (app: API.AppVO) => {
+  const id = toIdString(app.id)
+  if (!id) {
+    return
+  }
+  router.push({ path: `/app/chat/${id}`, query: { view: '1' } })
 }
 
 onMounted(() => {
@@ -229,10 +231,7 @@ watch(isLoggedIn, () => {
             <a-empty v-else-if="!myLoading" description="暂无作品，快去创建吧" />
           </a-spin>
           <div v-if="myTotal > 0" class="pagination-wrap">
-            <a-pagination
-              v-bind="myPagination"
-              @change="handleMyPageChange"
-            />
+            <a-pagination v-bind="myPagination" @change="handleMyPageChange" />
           </div>
         </template>
         <a-empty v-else description="登录后查看和管理你的作品">
@@ -254,10 +253,7 @@ watch(isLoggedIn, () => {
         </a-row>
         <a-empty v-else description="暂无精选案例" />
         <div v-if="goodTotal > (goodSearchParams.pageSize ?? 20)" class="pagination-wrap">
-          <a-pagination
-            v-bind="goodPagination"
-            @change="handleGoodPageChange"
-          />
+          <a-pagination v-bind="goodPagination" @change="handleGoodPageChange" />
         </div>
       </div>
     </section>
