@@ -5,7 +5,7 @@
       <a-col flex="200px">
         <RouterLink to="/">
           <div class="header-left">
-            <img class="logo" src="@/assets/logo.png" alt="Logo" />
+            <img class="logo" :src="logoImg" alt="Logo" />
             <h1 class="site-title">飞哥零代码平台</h1>
           </div>
         </RouterLink>
@@ -56,6 +56,7 @@ import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { LogoutOutlined } from '@ant-design/icons-vue'
 import { userLogout } from '@/api/userController.ts'
+import logoImg from '@/assets/logo.png'
 
 // 获取登录用户状态
 const loginUserStore = useLoginUserStore();
@@ -79,6 +80,11 @@ const originItems = [
     key: '/admin/userManage',
     label: '用户管理',
     title: '用户管理',
+  },
+  {
+    key: '/admin/appManage',
+    label: '应用管理',
+    title: '应用管理',
   },
   {
     key: 'others',
