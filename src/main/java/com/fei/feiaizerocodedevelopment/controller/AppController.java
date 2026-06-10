@@ -2,6 +2,7 @@ package com.fei.feiaizerocodedevelopment.controller;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import com.fei.feiaizerocodedevelopment.annotation.AuthCheck;
 import com.fei.feiaizerocodedevelopment.common.BaseResponse;
 import com.fei.feiaizerocodedevelopment.common.DeleteRequest;
@@ -11,10 +12,7 @@ import com.fei.feiaizerocodedevelopment.constant.UserConstant;
 import com.fei.feiaizerocodedevelopment.exception.BusinessException;
 import com.fei.feiaizerocodedevelopment.exception.ErrorCode;
 import com.fei.feiaizerocodedevelopment.exception.ThrowUtils;
-import com.fei.feiaizerocodedevelopment.model.dto.app.AppAddRequest;
-import com.fei.feiaizerocodedevelopment.model.dto.app.AppAdminUpdateRequest;
-import com.fei.feiaizerocodedevelopment.model.dto.app.AppQueryRequest;
-import com.fei.feiaizerocodedevelopment.model.dto.app.AppUpdateRequest;
+import com.fei.feiaizerocodedevelopment.model.dto.app.*;
 import com.fei.feiaizerocodedevelopment.model.entity.App;
 import com.fei.feiaizerocodedevelopment.model.entity.User;
 import com.fei.feiaizerocodedevelopment.model.enums.CodeGenTypeEnum;
@@ -25,10 +23,15 @@ import com.mybatisflex.core.paginate.Page;
 import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 应用 控制层。
@@ -44,6 +47,57 @@ public class AppController {
 
     @Resource
     private UserService userService;
+
+    @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
+                                      @RequestParam String message,
+                                      HttpServletRequest request) {
+        // 参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 错误");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        // 调用服务生成代码（SSE 流式返回）
+        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
+        return contentFlux
+                .map(chunk -> {
+                    Map<String, String> wrapper = Map.of("d",chunk);
+                    String jsonData = JSONUtil.toJsonStr(wrapper);
+                    return ServerSentEvent.<String>builder()
+                            .data(jsonData)
+                            .build();
+                })
+                .concatWith(Mono.just(
+                        // 发送结束事件
+                        ServerSentEvent.<String>builder()
+                                .event("done")
+                                .data("")
+                                .build()
+                ));
+    }
+
+    /**
+     * 应用部署
+     *
+     * @param appDeployRequest 部署请求
+     * @param request          请求
+     * @return 部署 URL
+     */
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request) {
+        // 检查部署请求是否为空
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        // 获取应用ID
+        Long appId = appDeployRequest.getAppId();
+        // 检查应用ID是否为空
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        // 调用服务部署应用
+        String deployUrl = appService.deployApp(appId, loginUser);
+        // 返回部署 URL
+        return ResultUtils.success(deployUrl);
+    }
 
     /**
      * 创建应用
