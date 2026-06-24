@@ -20,7 +20,9 @@ const myApps = ref<API.AppVO[]>([])
 const myTotal = ref(0)
 const mySearchParams = reactive<API.AppQueryRequest>({
   pageNum: 1,
-  pageSize: 20,
+  pageSize: 6,
+  sortField: 'createTime',
+  sortOrder: 'desc',
 })
 
 // 精选应用
@@ -28,25 +30,27 @@ const goodApps = ref<API.AppVO[]>([])
 const goodTotal = ref(0)
 const goodSearchParams = reactive<API.AppQueryRequest>({
   pageNum: 1,
-  pageSize: 20,
+  pageSize: 6,
+  sortField: 'createTime',
+  sortOrder: 'desc',
 })
 
 const isLoggedIn = computed(() => !!loginUserStore.loginUser.id)
 
 const myPagination = computed(() => ({
   current: mySearchParams.pageNum ?? 1,
-  pageSize: mySearchParams.pageSize ?? 20,
+  pageSize: mySearchParams.pageSize ?? 6,
   total: myTotal.value,
   showSizeChanger: false,
-  showTotal: (total: number) => `共 ${total} 条`,
+  showTotal: (total: number) => `共 ${total} 个应用`,
 }))
 
 const goodPagination = computed(() => ({
   current: goodSearchParams.pageNum ?? 1,
-  pageSize: goodSearchParams.pageSize ?? 20,
+  pageSize: goodSearchParams.pageSize ?? 6,
   total: goodTotal.value,
   showSizeChanger: false,
-  showTotal: (total: number) => `共 ${total} 条`,
+  showTotal: (total: number) => `共 ${total} 个应用`,
 }))
 
 const fetchMyApps = async () => {
@@ -178,7 +182,7 @@ onMounted(() => {
           </a-col>
         </a-row>
         <a-empty v-else description="暂无作品，快去创建吧" />
-        <div v-if="myTotal > (mySearchParams.pageSize ?? 20)" class="pagination-wrap">
+        <div class="pagination-wrap">
           <a-pagination v-bind="myPagination" @change="handleMyPageChange" />
         </div>
       </a-spin>
@@ -193,7 +197,7 @@ onMounted(() => {
         </a-col>
       </a-row>
       <a-empty v-else description="暂无精选案例" />
-      <div v-if="goodTotal > (goodSearchParams.pageSize ?? 20)" class="pagination-wrap">
+      <div class="pagination-wrap">
         <a-pagination v-bind="goodPagination" @change="handleGoodPageChange" />
       </div>
     </section>
