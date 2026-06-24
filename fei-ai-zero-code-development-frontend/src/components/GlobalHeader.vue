@@ -41,8 +41,6 @@
           <div v-else>
             <a-button type="primary" href="/user/login">登录</a-button>
           </div>
-
-
         </div>
       </a-col>
     </a-row>
@@ -59,7 +57,7 @@ import { userLogout } from '@/api/userController.ts'
 import logoImg from '@/assets/logo.png'
 
 // 获取登录用户状态
-const loginUserStore = useLoginUserStore();
+const loginUserStore = useLoginUserStore()
 
 const router = useRouter()
 // 当前选中菜单
@@ -87,6 +85,11 @@ const originItems = [
     title: '应用管理',
   },
   {
+    key: '/admin/chatManage',
+    label: '对话管理',
+    title: '对话管理',
+  },
+  {
     key: 'others',
     label: h('a', { href: 'https://github.com', target: '_blank' }, 'Github'),
     title: 'Github',
@@ -110,7 +113,6 @@ const filterMenus = (menus = [] as MenuProps['items']) => {
 // 展示在菜单的路由数组
 const menuItems = computed<MenuProps['items']>(() => filterMenus(originItems))
 
-
 // 处理菜单点击
 const handleMenuClick: MenuProps['onClick'] = (e) => {
   const key = e.key as string
@@ -123,15 +125,15 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 
 // 退出登录
 const doLogout = async () => {
-  const res = await userLogout();
+  const res = await userLogout()
   if (res.data.code === 0) {
     loginUserStore.setLoginUser({
-      userName:'未登录'
+      userName: '未登录',
     })
     message.success('退出登录成功')
-    await router.push("/user/login")
+    await router.push('/user/login')
   } else {
-    message.error('退出登录失败' + res.data.msg)
+    message.error('退出登录失败' + res.data.message)
   }
 }
 </script>

@@ -10,5 +10,4 @@ loginUserStore.fetchLoginUser()
   <BasicLayout />
 </template>
 
-<style>
-</style>
+<style></style>

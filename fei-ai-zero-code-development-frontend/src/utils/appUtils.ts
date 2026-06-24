@@ -1,14 +1,28 @@
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import 'dayjs/locale/zh-cn'
-import { getStaticPreviewUrl } from '@/config/env'
+import { getDeployUrl, getStaticPreviewUrl } from '@/config/env'
+import { toIdString } from '@/utils/id.ts'
 
 dayjs.extend(relativeTime)
 dayjs.locale('zh-cn')
 
-/** 获取应用静态预览地址 */
+/** 获取应用静态预览地址（生成后的网站浏览地址） */
 export function getAppPreviewUrl(app: API.AppVO): string {
-  return getStaticPreviewUrl(app.codeGenType ?? '', app.id ?? '')
+  return getStaticPreviewUrl(app.codeGenType ?? '', toIdString(app.id))
+}
+
+/** 获取应用部署地址（localhost/{deployKey}） */
+export function getAppDeployUrl(app: API.AppVO): string {
+  if (!app.deployKey) {
+    return ''
+  }
+  return getDeployUrl(app.deployKey)
+}
+
+/** 是否已部署作品（有 deployKey 即可查看作品） */
+export function hasDeployWork(app: API.AppVO): boolean {
+  return !!app.deployKey
 }
 
 /** 格式化相对创建时间 */

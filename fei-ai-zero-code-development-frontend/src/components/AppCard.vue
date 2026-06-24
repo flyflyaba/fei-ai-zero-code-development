@@ -1,13 +1,15 @@
 <template>
-  <div class="app-card" @click="handleClick">
+  <div class="app-card" @click="handleChat">
     <div class="app-card-cover">
       <img v-if="app.cover" :src="app.cover" :alt="app.appName" />
       <div v-else class="app-card-placeholder">
-        <img class="placeholder-logo" :src="logoImg" alt="" />
+        <img class="placeholder-logo" src="@/assets/logo.png" alt="" />
       </div>
       <div class="app-card-overlay">
         <a-button type="primary" size="small" @click.stop="handleChat">查看对话</a-button>
-        <a-button v-if="isDeployed" size="small" @click.stop="handlePreview">查看作品</a-button>
+        <a-button v-if="showDeployWork" size="small" @click.stop="handleDeployWork">
+          查看作品
+        </a-button>
       </div>
     </div>
     <div class="app-card-body">
@@ -27,9 +29,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { formatCreateTime, getAppPreviewUrl, getAppTypeTag } from '@/utils/appUtils.ts'
+import {
+  formatCreateTime,
+  getAppDeployUrl,
+  getAppTypeTag,
+  hasDeployWork,
+} from '@/utils/appUtils.ts'
 import { toIdString } from '@/utils/id.ts'
-import logoImg from '@/assets/logo.png'
 
 const router = useRouter()
 
@@ -39,38 +45,26 @@ const props = withDefaults(
     showTag?: boolean
     showTime?: boolean
     showAuthor?: boolean
-    viewMode?: boolean
   }>(),
   {
     showTag: false,
     showTime: true,
     showAuthor: false,
-    viewMode: false,
   },
 )
 
-const emit = defineEmits<{
-  click: [app: API.AppVO]
-}>()
-
 const typeTag = computed(() => getAppTypeTag(props.app.codeGenType))
-
-const isDeployed = computed(() => !!props.app.deployedTime)
-
-const handleClick = () => {
-  emit('click', props.app)
-}
+const showDeployWork = computed(() => hasDeployWork(props.app))
 
 const handleChat = () => {
   const id = toIdString(props.app.id)
   if (id) {
-    const query = props.viewMode ? { view: '1' } : {}
-    router.push({ path: `/app/chat/${id}`, query })
+    router.push(`/app/chat/${id}`)
   }
 }
 
-const handlePreview = () => {
-  const url = getAppPreviewUrl(props.app)
+const handleDeployWork = () => {
+  const url = getAppDeployUrl(props.app)
   if (url) {
     window.open(url, '_blank')
   }
@@ -83,7 +77,9 @@ const handlePreview = () => {
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition:
+    box-shadow 0.2s,
+    transform 0.2s;
   border: 1px solid #f0f0f0;
 }
 

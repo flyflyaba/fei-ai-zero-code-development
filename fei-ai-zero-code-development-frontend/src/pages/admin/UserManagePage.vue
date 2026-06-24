@@ -15,7 +15,12 @@
     <a-divider />
     <!-- 表格 -->
 
-    <a-table :columns="columns" :data-source="data" :pagination="pagination" @change="doTableChange">
+    <a-table
+      :columns="columns"
+      :data-source="data"
+      :pagination="pagination"
+      @change="doTableChange"
+    >
       <template #bodyCell="{ column, record }">
         <template v-if="column.dataIndex === 'userAvatar'">
           <a-image :src="record.userAvatar" :width="120" />
@@ -76,7 +81,7 @@ const columns = [
     title: '操作',
     key: 'action',
   },
-];
+]
 
 // 显示的数据
 const data = ref<API.UserVO[]>([])
@@ -86,7 +91,7 @@ const total = ref(0)
 const searchParams = reactive<API.UserQueryRequest>({
   pageNum: 1,
   pageSize: 10,
-  })
+})
 
 // 获取数据
 const fetchData = async () => {
@@ -114,8 +119,8 @@ const pagination = computed(() => {
 
 // 表格分页变化时的操作
 const doTableChange = (page: any) => {
-  searchParams.pageNum = page.current;
-  searchParams.pageSize = page.pageSize;
+  searchParams.pageNum = page.current
+  searchParams.pageSize = page.pageSize
   fetchData()
 }
 

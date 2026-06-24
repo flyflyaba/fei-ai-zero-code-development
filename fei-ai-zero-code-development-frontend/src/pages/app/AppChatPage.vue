@@ -13,6 +13,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons-vue'
 import { deleteApp, deployApp, getAppVoById } from '@/api/appController.ts'
+import { listAppChatHistory } from '@/api/chatHistoryController.ts'
 import { chatToGenCodeSSE } from '@/utils/sse.ts'
 import { getAppPreviewUrl } from '@/utils/appUtils.ts'
 import logoImg from '@/assets/logo.png'
@@ -22,9 +23,13 @@ import { useLoginUserStore } from '@/stores/loginUser.ts'
 import ChatMessageContent from '@/components/ChatMessageContent.vue'
 
 interface ChatMessage {
+  id?: number
   role: 'user' | 'ai'
   content: string
+  createTime?: string
 }
+
+const HISTORY_PAGE_SIZE = 10
 
 const route = useRoute()
 const router = useRouter()
@@ -40,6 +45,10 @@ const showPreview = ref(false)
 const previewUrl = ref('')
 const messagesRef = ref<HTMLElement>()
 const autoSent = ref(false)
+const historyLoading = ref(false)
+const loadingMore = ref(false)
+const hasMoreHistory = ref(false)
+const totalHistoryCount = ref(0)
 const deployModalVisible = ref(false)
 const deployUrl = ref('')
 const appDetailModalVisible = ref(false)
@@ -67,11 +76,15 @@ const stopStatusCycle = () => {
 
 const loginUser = computed(() => loginUserStore.loginUser)
 
-const isViewMode = computed(() => route.query.view === '1')
-
 const isOwner = computed(() => {
   if (!loginUser.value.id || !appInfo.value.user?.id) return false
   return loginUser.value.id === appInfo.value.user.id
+})
+
+const canViewHistory = computed(() => {
+  if (!loginUser.value.id) return false
+  if (loginUser.value.userRole === 'admin') return true
+  return isOwner.value
 })
 
 const showAiThinking = computed(() => {
@@ -86,6 +99,77 @@ const scrollToBottom = async () => {
   await nextTick()
   if (messagesRef.value) {
     messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+  }
+}
+
+const convertHistoryToMessage = (record: API.ChatHistory): ChatMessage => ({
+  id: record.id,
+  role: record.messageType === 'user' ? 'user' : 'ai',
+  content: record.message ?? '',
+  createTime: record.createTime,
+})
+
+const sortMessagesAsc = (msgs: ChatMessage[]) =>
+  [...msgs].sort((a, b) => {
+    if (!a.createTime || !b.createTime) return 0
+    return new Date(a.createTime).getTime() - new Date(b.createTime).getTime()
+  })
+
+const shouldShowPreviewOnLoad = () => {
+  if (!previewUrl.value) return false
+  if (appInfo.value.codeGenType) return true
+  return canViewHistory.value && totalHistoryCount.value >= 2
+}
+
+const loadChatHistory = async (loadMore = false) => {
+  if (!appId.value) return
+
+  if (loadMore) {
+    loadingMore.value = true
+  } else {
+    historyLoading.value = true
+  }
+
+  try {
+    const oldestCreateTime =
+      loadMore && messages.value.length > 0 ? messages.value[0].createTime : undefined
+
+    const res = await listAppChatHistory({
+      appId: appId.value as unknown as number,
+      pageSize: HISTORY_PAGE_SIZE,
+      lastCreateTime: oldestCreateTime,
+    })
+
+    if (res.data.code === 0 && res.data.data) {
+      const records = res.data.data.records ?? []
+      totalHistoryCount.value = res.data.data.totalRow ?? 0
+      const sortedBatch = sortMessagesAsc(records.map(convertHistoryToMessage))
+
+      if (loadMore) {
+        const el = messagesRef.value
+        const prevScrollHeight = el?.scrollHeight ?? 0
+        const existingIds = new Set(messages.value.map((m) => m.id))
+        const toPrepend = sortedBatch.filter((m) => !m.id || !existingIds.has(m.id))
+        messages.value = [...toPrepend, ...messages.value]
+        await nextTick()
+        if (el) {
+          el.scrollTop = el.scrollHeight - prevScrollHeight
+        }
+      } else {
+        messages.value = sortedBatch
+        await scrollToBottom()
+      }
+
+      hasMoreHistory.value = messages.value.length < totalHistoryCount.value
+    }
+  } catch (error: unknown) {
+    if (!loadMore) {
+      messages.value = []
+    }
+    message.error('加载对话历史失败：' + getErrorMessage(error))
+  } finally {
+    historyLoading.value = false
+    loadingMore.value = false
   }
 }
 
@@ -178,7 +262,12 @@ const goEditPage = () => {
 const handleDeleteApp = async () => {
   deleting.value = true
   try {
-    const res = await deleteApp({ id: appId.value })
+    const id = Number(appId.value)
+    if (isNaN(id)) {
+      message.error('应用 ID 无效')
+      return
+    }
+    const res = await deleteApp({ id })
     if (res.data.code === 0) {
       message.success('删除成功')
       appDetailModalVisible.value = false
@@ -204,10 +293,14 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   await loginUserStore.fetchLoginUser()
   await loadAppInfo()
-  if (route.query.autoSend === '1' && appInfo.value.initPrompt && !autoSent.value) {
+  if (canViewHistory.value) {
+    await loadChatHistory()
+  }
+
+  if (isOwner.value && !messages.value.length && appInfo.value.initPrompt && !autoSent.value) {
     autoSent.value = true
     await sendMessage(appInfo.value.initPrompt)
-  } else if (appInfo.value.codeGenType) {
+  } else if (shouldShowPreviewOnLoad()) {
     showPreview.value = true
   }
 })
@@ -222,7 +315,16 @@ onMounted(async () => {
           <span class="chat-app-name">{{ appInfo.appName || '未命名应用' }}</span>
         </div>
         <div ref="messagesRef" class="messages-area">
-          <template v-for="(msg, index) in messages" :key="index">
+          <div v-if="hasMoreHistory" class="load-more-wrap">
+            <a-button type="link" :loading="loadingMore" @click="loadChatHistory(true)">
+              加载更多
+            </a-button>
+          </div>
+          <div v-if="historyLoading" class="history-loading">
+            <a-spin size="small" />
+            <span>加载对话历史中...</span>
+          </div>
+          <template v-for="(msg, index) in messages" :key="msg.id ?? `msg-${index}`">
             <!-- 用户消息 -->
             <div v-if="msg.role === 'user'" class="message-row message-user">
               <div class="message-bubble user-bubble">
@@ -258,14 +360,14 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div v-if="!messages.length" class="empty-chat">开始对话，描述你想要的网站或应用</div>
+          <div v-if="!historyLoading && !messages.length" class="empty-chat">
+            开始对话，描述你想要的网站或应用
+          </div>
           <div class="scroll-anchor" />
         </div>
 
         <!-- 输入框 -->
-        <div v-if="isViewMode && !isOwner" class="view-mode-notice">
-          当前为只读模式，无法发送消息
-        </div>
+        <div v-if="!isOwner" class="view-mode-notice">当前为只读模式，无法发送消息</div>
         <div v-else class="input-area">
           <a-textarea
             v-model:value="inputMessage"
@@ -452,6 +554,21 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+}
+
+.load-more-wrap {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.history-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #999;
+  font-size: 13px;
+  padding: 8px 0 16px;
 }
 
 .message-row {
