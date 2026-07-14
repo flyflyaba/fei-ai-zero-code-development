@@ -2,7 +2,9 @@ package com.fei.feiaizerocodedevelopment.ai;
 
 import com.fei.feiaizerocodedevelopment.ai.model.HtmlCodeResult;
 import com.fei.feiaizerocodedevelopment.ai.model.MultiFileCodeResult;
+import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
+import dev.langchain4j.service.UserMessage;
 import reactor.core.publisher.Flux;
 
 public interface AiCodeGeneratorService {
@@ -43,4 +45,12 @@ public interface AiCodeGeneratorService {
     @SystemMessage(fromResource = "prompt/codegen-multi-file-system-prompt.txt")
     Flux<String> generateMultiFileCodeStream(String userMessage);
 
+    /**
+     * 生成Vue项目代码（流式）
+     *
+     * @param userMessage 用户提示词
+     * @return AI的输出结果
+     */
+    @SystemMessage(fromResource = "prompt/codegen-vue-project-system-prompt.txt")
+    Flux<String> generateVueProjectCodeStream(@MemoryId long appId, @UserMessage String userMessage);
 }
