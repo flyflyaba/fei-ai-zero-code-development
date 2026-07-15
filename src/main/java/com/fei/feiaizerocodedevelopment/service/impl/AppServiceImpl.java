@@ -7,24 +7,23 @@ import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import com.fei.feiaizerocodedevelopment.constant.AppConstant;
 import com.fei.feiaizerocodedevelopment.core.AiCodeGeneratorFacade;
-import com.fei.feiaizerocodedevelopment.core.parser.CodeParserExecutor;
-import com.fei.feiaizerocodedevelopment.core.saver.CodeFileSaverExecutor;
+import com.fei.feiaizerocodedevelopment.core.handler.StreamHandlerExecutor;
 import com.fei.feiaizerocodedevelopment.exception.BusinessException;
 import com.fei.feiaizerocodedevelopment.exception.ErrorCode;
 import com.fei.feiaizerocodedevelopment.exception.ThrowUtils;
+import com.fei.feiaizerocodedevelopment.mapper.AppMapper;
 import com.fei.feiaizerocodedevelopment.model.dto.app.AppQueryRequest;
+import com.fei.feiaizerocodedevelopment.model.entity.App;
 import com.fei.feiaizerocodedevelopment.model.entity.User;
 import com.fei.feiaizerocodedevelopment.model.enums.ChatHistoryMessageTypeEnum;
 import com.fei.feiaizerocodedevelopment.model.enums.CodeGenTypeEnum;
 import com.fei.feiaizerocodedevelopment.model.vo.AppVO;
 import com.fei.feiaizerocodedevelopment.model.vo.UserVO;
+import com.fei.feiaizerocodedevelopment.service.AppService;
 import com.fei.feiaizerocodedevelopment.service.ChatHistoryService;
 import com.fei.feiaizerocodedevelopment.service.UserService;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
-import com.fei.feiaizerocodedevelopment.model.entity.App;
-import com.fei.feiaizerocodedevelopment.mapper.AppMapper;
-import com.fei.feiaizerocodedevelopment.service.AppService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -57,6 +56,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
     @Resource
     private ChatHistoryService chatHistoryService;
 
+    @Resource
+    private StreamHandlerExecutor streamHandlerExecutor;
+
     @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
         // 1. 参数校验
@@ -78,22 +80,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App>  implements AppS
         // 5. 在调用AI前，先保存用户消息到数据库中
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         // 6. 调用 AI 生成代码（流式）
-        Flux<String> contentFlux = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
         // 7. 收集AI响应的内容，并且在完成后保存记录到对话历史
-        StringBuilder aiResponseBuilder = new StringBuilder();
-        return contentFlux.map(chunk -> {
-            // 实时收集AI响应的内容
-            aiResponseBuilder.append(chunk);
-            return chunk;
-        }).doOnComplete(() -> {
-            // 流式返回完成后，保存AI消息到对话历史中
-            String aiResponse = aiResponseBuilder.toString();
-            chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-        }).doOnError(error -> {
-            // 如果AI回复失败，也需要保存到数据库中
-            String errorMessage = "AI回复失败：" + error.getMessage();
-            chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
-        });
+        return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum);
     }
 
     @Override
