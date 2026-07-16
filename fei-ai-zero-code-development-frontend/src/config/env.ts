@@ -6,6 +6,7 @@
  *   1. 在 .env.development 和 .env.production 中以 VITE_ 前缀声明
  *   2. 在本文件中添加对应的导出项
  */
+import { CodeGenTypeEnum } from '@/enums/codeGenType.ts'
 
 // 应用部署域名
 export const DEPLOY_DOMAIN = import.meta.env.VITE_DEPLOY_DOMAIN || 'http://localhost'
@@ -23,5 +24,10 @@ export const getDeployUrl = (deployKey: string) => {
 
 // 获取静态资源预览 URL
 export const getStaticPreviewUrl = (codeGenType: string, appId: string) => {
-  return `${STATIC_BASE_URL}/${codeGenType}_${appId}/`
+  const baseUrl =  `${STATIC_BASE_URL}/${codeGenType}_${appId}/`
+  // 如果是Vue项目，浏览地址需要添加dist后缀
+  if (codeGenType === CodeGenTypeEnum.VUE_PROJECT) {
+    return `${baseUrl}dist/index.html`
+  }
+  return baseUrl
 }
