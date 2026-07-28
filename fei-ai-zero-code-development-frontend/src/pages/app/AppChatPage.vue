@@ -11,6 +11,7 @@ import {
   InfoCircleOutlined,
   PaperClipOutlined,
   ThunderboltOutlined,
+  DownloadOutlined
 } from '@ant-design/icons-vue'
 import { deleteApp, deployApp, getAppVoById } from '@/api/appController.ts'
 import { listAppChatHistory } from '@/api/chatHistoryController.ts'
@@ -21,6 +22,8 @@ import { toIdString } from '@/utils/id.ts'
 import { getErrorMessage } from '@/utils/requestUtils.ts'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import ChatMessageContent from '@/components/ChatMessageContent.vue'
+import { getCodeGenTypeLabel } from '@/enums/codeGenType.ts'
+import request from '@/request.ts'
 
 interface ChatMessage {
   id?: number
@@ -94,6 +97,8 @@ const showAiThinking = computed(() => {
   const last = messages.value[messages.value.length - 1]
   return last?.role === 'ai' && !last.content.trim()
 })
+
+const codeGenTypeLabel = computed(() => getCodeGenTypeLabel(appInfo.value.codeGenType))
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -282,6 +287,47 @@ const handleDeleteApp = async () => {
   }
 }
 
+// 下载相关
+const downloading = ref(false)
+
+// 下载代码
+const downloadCode = async () => {
+  if (!appId.value) {
+    message.error('应用ID不存在')
+    return
+  }
+  downloading.value = true
+  try {
+    const API_BASE_URL = request.defaults.baseURL || ''
+    const url = `${API_BASE_URL}/app/download/${appId.value}`
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.status}`)
+    }
+    // 获取文件名
+    const contentDisposition = response.headers.get('Content-Disposition')
+    const fileName = contentDisposition?.match(/filename="(.+)"/)?.[1] || `app-${appId.value}.zip`
+    // 下载文件
+    const blob = await response.blob()
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = downloadUrl
+    link.download = fileName
+    link.click()
+    // 清理
+    URL.revokeObjectURL(downloadUrl)
+    message.success('代码下载成功')
+  } catch (error) {
+    console.error('下载失败：', error)
+    message.error('下载失败，请重试')
+  } finally {
+    downloading.value = false
+  }
+}
+
 const openDeployUrl = () => {
   window.open(deployUrl.value, '_blank')
 }
@@ -313,6 +359,9 @@ onMounted(async () => {
       <div class="chat-panel">
         <div class="chat-header">
           <span class="chat-app-name">{{ appInfo.appName || '未命名应用' }}</span>
+          <a-tag v-if="appInfo.codeGenType" color="blue" class="chat-app-type-tag">
+            {{ codeGenTypeLabel }}
+          </a-tag>
         </div>
         <div ref="messagesRef" class="messages-area">
           <div v-if="hasMoreHistory" class="load-more-wrap">
@@ -336,15 +385,12 @@ onMounted(async () => {
             </div>
 
             <!-- AI 消息 -->
-            <div v-else class="message-row message-ai">
+            <div v-else-if="msg.content.trim()" class="message-row message-ai">
               <div class="ai-avatar-wrap">
                 <img class="ai-avatar" :src="logoImg" alt="AI" />
               </div>
               <div class="message-bubble ai-bubble">
-                <ChatMessageContent v-if="msg.content.trim()" :content="msg.content" />
-                <span v-else-if="generating && index === messages.length - 1" class="typing-cursor"
-                  >|</span
-                >
+                <ChatMessageContent :content="msg.content" />
               </div>
             </div>
           </template>
@@ -410,6 +456,18 @@ onMounted(async () => {
               <InfoCircleOutlined />
               应用详情
             </a-button>
+            <a-button
+              type="primary"
+              ghost
+              @click="downloadCode"
+              :loading="downloading"
+              :disabled="!isOwner"
+            >
+              <template #icon>
+                <DownloadOutlined />
+              </template>
+              下载代码
+            </a-button>
             <a-button v-if="isOwner" type="primary" :loading="deploying" @click="handleDeploy">
               <CloudUploadOutlined />
               部署
@@ -472,6 +530,9 @@ onMounted(async () => {
         <a-descriptions :column="1" bordered size="small">
           <a-descriptions-item label="应用名称">
             {{ appInfo.appName || '-' }}
+          </a-descriptions-item>
+          <a-descriptions-item label="生成类型">
+            {{ codeGenTypeLabel }}
           </a-descriptions-item>
           <a-descriptions-item label="创建者">
             {{ appInfo.user?.userName || '-' }}
@@ -538,6 +599,9 @@ onMounted(async () => {
 }
 
 .chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid #f0f0f0;
   background: #fff;
@@ -548,6 +612,14 @@ onMounted(async () => {
   font-size: 15px;
   font-weight: 700;
   color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-app-type-tag {
+  flex-shrink: 0;
+  margin: 0;
 }
 
 .messages-area {
@@ -629,22 +701,6 @@ onMounted(async () => {
   padding: 10px 14px;
   border-radius: 4px 12px 12px 12px;
   background: #f5f5f5;
-}
-
-.typing-cursor {
-  animation: blink 1s infinite;
-  color: #1677ff;
-  font-weight: bold;
-}
-
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
 }
 
 .ai-thinking-row {
@@ -793,6 +849,10 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   gap: 20px;
+}
+
+.code-gen-type-tag {
+  font-size: 12px;
 }
 
 .generating-ring {

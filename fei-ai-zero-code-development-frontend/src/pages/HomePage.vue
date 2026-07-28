@@ -13,7 +13,28 @@ const loginUserStore = useLoginUserStore()
 const prompt = ref('')
 const creating = ref(false)
 
-const quickPrompts = ['波普风电商页面', '企业网站', '电商运营后台', '暗黑话题社区']
+const quickPrompts = [
+  {
+    label: '个人博客网站',
+    prompt:
+      '创建一个现代化的个人博客网站，包含文章列表、详情页、分类标签、搜索功能、评论系统和个人简介页面。采用简洁的设计风格，支持响应式布局，文章支持Markdown格式，首页展示最新文章和热门推荐。',
+  },
+  {
+    label: '企业网站',
+    prompt:
+      '创建一个专业企业官网，包含公司简介、核心业务、成功案例、团队介绍和联系我们等模块，风格简洁大气',
+  },
+  {
+    label: '电商运营后台',
+    prompt:
+      '创建一个电商运营后台管理系统，包含数据概览看板、订单管理、商品管理、用户管理和营销活动配置，界面清晰易用',
+  },
+  {
+    label: '波普风电商页面',
+    prompt:
+      '创建一个波普风电商首页，风格大胆鲜艳，包含商品轮播、分类导航、热销推荐和促销专区，布局活泼有冲击力',
+  },
+]
 
 // 我的应用
 const myApps = ref<API.AppVO[]>([])
@@ -97,20 +118,23 @@ const handleCreateApp = async () => {
   try {
     const res = await addApp({ initPrompt: text })
     if (res.data.code === 0 && res.data.data) {
-      router.push({
+      await router.push({
         path: `/app/chat/${res.data.data}`,
         query: { autoSend: '1' },
       })
-    } else {
-      message.error('创建失败，' + res.data.message)
+      // 跳转成功后保持 loading，避免图标闪回
+      return
     }
-  } finally {
+    message.error('创建失败，' + res.data.message)
+    creating.value = false
+  } catch {
+    message.error('创建失败')
     creating.value = false
   }
 }
 
-const handleQuickPrompt = (text: string) => {
-  prompt.value = `使用 NoCode 创建一个${text}`
+const handleQuickPrompt = (item: { label: string; prompt: string }) => {
+  prompt.value = item.prompt
 }
 
 onMounted(() => {
@@ -154,7 +178,9 @@ onMounted(() => {
             class="send-btn"
             @click="handleCreateApp"
           >
-            <ArrowUpOutlined />
+            <template #icon>
+              <ArrowUpOutlined />
+            </template>
           </a-button>
         </div>
       </div>
@@ -163,11 +189,11 @@ onMounted(() => {
       <div class="quick-prompts">
         <a-button
           v-for="item in quickPrompts"
-          :key="item"
+          :key="item.label"
           class="quick-prompt-btn"
           @click="handleQuickPrompt(item)"
         >
-          {{ item }}
+          {{ item.label }}
         </a-button>
       </div>
     </section>
@@ -262,6 +288,8 @@ onMounted(() => {
 .send-btn {
   width: 36px;
   height: 36px;
+  min-width: 36px;
+  padding: 0;
   background: #1a1a1a;
   border-color: #1a1a1a;
 }
@@ -269,6 +297,10 @@ onMounted(() => {
 .send-btn:hover {
   background: #333 !important;
   border-color: #333 !important;
+}
+
+.send-btn :deep(.anticon) {
+  font-size: 16px;
 }
 
 .quick-prompts {
