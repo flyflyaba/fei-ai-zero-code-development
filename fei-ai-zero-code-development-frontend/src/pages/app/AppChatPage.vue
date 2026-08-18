@@ -24,6 +24,7 @@ import { useLoginUserStore } from '@/stores/loginUser.ts'
 import ChatMessageContent from '@/components/ChatMessageContent.vue'
 import { getCodeGenTypeLabel } from '@/enums/codeGenType.ts'
 import request from '@/request.ts'
+import { VisualEditor, type ElementInfo } from '@/utils/visualEditor.ts'
 
 interface ChatMessage {
   id?: number
@@ -56,6 +57,17 @@ const deployModalVisible = ref(false)
 const deployUrl = ref('')
 const appDetailModalVisible = ref(false)
 const deleting = ref(false)
+
+// 可视化编辑
+const isEditMode = ref(false)
+const selectedElementInfo = ref<ElementInfo | null>(null)
+const previewIframeRef = ref<HTMLIFrameElement>()
+const previewReady = ref(false)
+const visualEditor = new VisualEditor({
+  onElementSelected: (elementInfo: ElementInfo) => {
+    selectedElementInfo.value = elementInfo
+  },
+})
 
 const generatingStatus = ref('正在生成代码...')
 const statusTexts = ['正在生成代码...', '正在构建页面结构...', '正在优化样式...', '即将完成...']
@@ -199,17 +211,47 @@ const loadAppInfo = async () => {
   }
 }
 
+const buildMessageWithElement = (text: string) => {
+  let msg = text.trim()
+  if (!selectedElementInfo.value) {
+    return msg
+  }
+  const el = selectedElementInfo.value
+  let elementContext = `\n\n选中元素信息：`
+  if (el.pagePath) {
+    elementContext += `\n- 页面路径: ${el.pagePath}`
+  }
+  elementContext += `\n- 标签: ${el.tagName.toLowerCase()}\n- 选择器: ${el.selector}`
+  if (el.textContent) {
+    elementContext += `\n- 当前内容: ${el.textContent.substring(0, 100)}`
+  }
+  return msg + elementContext
+}
+
 const sendMessage = async (text: string) => {
-  const msg = text.trim()
-  if (!msg || generating.value) {
+  const raw = text.trim()
+  if (!raw || generating.value) {
     return
   }
+
+  const msg = buildMessageWithElement(raw)
 
   messages.value.push({ role: 'user', content: msg })
   messages.value.push({ role: 'ai', content: '' })
   inputMessage.value = ''
+
+  // 发送后清除选中元素并退出编辑模式
+  if (selectedElementInfo.value) {
+    clearSelectedElement()
+    if (isEditMode.value) {
+      toggleEditMode()
+    }
+  }
+
   generating.value = true
   showPreview.value = false
+  previewReady.value = false
+  isEditMode.value = false
   startStatusCycle()
   await scrollToBottom()
 
@@ -238,6 +280,38 @@ const sendMessage = async (text: string) => {
 const handleSend = () => {
   sendMessage(inputMessage.value)
 }
+
+const onIframeLoad = () => {
+  previewReady.value = true
+  const iframe = previewIframeRef.value
+  if (iframe) {
+    visualEditor.init(iframe)
+    visualEditor.onIframeLoad()
+  }
+}
+
+const toggleEditMode = () => {
+  if (!previewIframeRef.value || !previewReady.value) {
+    message.warning('请等待页面加载完成')
+    return
+  }
+  isEditMode.value = visualEditor.toggleEditMode()
+  if (!isEditMode.value) {
+    selectedElementInfo.value = null
+  }
+}
+
+const clearSelectedElement = () => {
+  selectedElementInfo.value = null
+  visualEditor.clearSelection()
+}
+
+const inputPlaceholder = computed(() => {
+  if (selectedElementInfo.value) {
+    return `正在编辑 ${selectedElementInfo.value.tagName.toLowerCase()} 元素，描述您想要的修改...`
+  }
+  return '描述越详细，页面越具体，可以一步一步完善生成效果'
+})
 
 const handleDeploy = async () => {
   deploying.value = true
@@ -332,11 +406,17 @@ const openDeployUrl = () => {
   window.open(deployUrl.value, '_blank')
 }
 
+const handleIframeMessage = (event: MessageEvent) => {
+  visualEditor.handleIframeMessage(event)
+}
+
 onBeforeUnmount(() => {
   stopStatusCycle()
+  window.removeEventListener('message', handleIframeMessage)
 })
 
 onMounted(async () => {
+  window.addEventListener('message', handleIframeMessage)
   await loginUserStore.fetchLoginUser()
   await loadAppInfo()
   if (canViewHistory.value) {
@@ -412,13 +492,51 @@ onMounted(async () => {
           <div class="scroll-anchor" />
         </div>
 
+        <!-- 选中元素信息展示 -->
+        <a-alert
+          v-if="selectedElementInfo"
+          class="selected-element-alert"
+          type="info"
+          closable
+          @close="clearSelectedElement"
+        >
+          <template #message>
+            <div class="selected-element-info">
+              <div class="element-header">
+                <span class="element-tag">
+                  选中元素：{{ selectedElementInfo.tagName.toLowerCase() }}
+                </span>
+                <span v-if="selectedElementInfo.id" class="element-id">
+                  #{{ selectedElementInfo.id }}
+                </span>
+                <span v-if="selectedElementInfo.className" class="element-class">
+                  .{{ selectedElementInfo.className.split(' ').join('.') }}
+                </span>
+              </div>
+              <div class="element-details">
+                <div v-if="selectedElementInfo.textContent" class="element-item">
+                  内容: {{ selectedElementInfo.textContent.substring(0, 50)
+                  }}{{ selectedElementInfo.textContent.length > 50 ? '...' : '' }}
+                </div>
+                <div v-if="selectedElementInfo.pagePath" class="element-item">
+                  页面路径: {{ selectedElementInfo.pagePath }}
+                </div>
+                <div class="element-item">
+                  选择器:
+                  <code class="element-selector-code">{{ selectedElementInfo.selector }}</code>
+                </div>
+              </div>
+            </div>
+          </template>
+        </a-alert>
+
         <!-- 输入框 -->
         <div v-if="!isOwner" class="view-mode-notice">当前为只读模式，无法发送消息</div>
         <div v-else class="input-area">
           <a-textarea
             v-model:value="inputMessage"
             :auto-size="{ minRows: 3, maxRows: 6 }"
-            placeholder="描述越详细，页面越具体，可以一步一步完善生成效果"
+            :placeholder="inputPlaceholder"
             :bordered="false"
             :disabled="generating"
             @keydown.enter.ctrl="handleSend"
@@ -452,6 +570,16 @@ onMounted(async () => {
         <div class="preview-toolbar">
           <h3 class="preview-title">生成后的网页展示</h3>
           <a-space :size="8">
+            <a-button
+              v-if="isOwner && showPreview && previewUrl"
+              type="link"
+              :danger="isEditMode"
+              :class="{ 'edit-mode-active': isEditMode }"
+              @click="toggleEditMode"
+            >
+              <EditOutlined />
+              {{ isEditMode ? '退出编辑' : '编辑模式' }}
+            </a-button>
             <a-button v-if="isOwner" @click="goAppDetail">
               <InfoCircleOutlined />
               应用详情
@@ -476,7 +604,13 @@ onMounted(async () => {
         </div>
         <div class="preview-body">
           <div v-if="showPreview && previewUrl" class="preview-content">
-            <iframe :src="previewUrl" class="preview-iframe" title="应用预览" />
+            <iframe
+              ref="previewIframeRef"
+              :src="previewUrl"
+              class="preview-iframe"
+              title="应用预览"
+              @load="onIframeLoad"
+            />
           </div>
           <div v-else-if="generating" class="preview-generating">
             <div class="generating-ring">
@@ -758,6 +892,60 @@ onMounted(async () => {
   padding: 48px 16px;
 }
 
+.selected-element-alert {
+  margin: 0 16px 8px;
+  flex-shrink: 0;
+}
+
+.selected-element-info {
+  line-height: 1.4;
+}
+
+.element-header {
+  margin-bottom: 8px;
+}
+
+.element-details {
+  margin-top: 4px;
+}
+
+.element-item {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.element-item:last-child {
+  margin-bottom: 0;
+}
+
+.element-tag {
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #007bff;
+}
+
+.element-id {
+  color: #28a745;
+  margin-left: 4px;
+}
+
+.element-class {
+  color: #d48806;
+  margin-left: 4px;
+}
+
+.element-selector-code {
+  font-family: 'Monaco', 'Menlo', monospace;
+  background: #f6f8fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #d73a49;
+  border: 1px solid #e1e4e8;
+  word-break: break-all;
+}
+
 .scroll-anchor {
   height: 1px;
 }
@@ -813,6 +1001,10 @@ onMounted(async () => {
   font-weight: 600;
   color: #1a1a1a;
   line-height: 32px;
+}
+
+.edit-mode-active {
+  color: #ff4d4f !important;
 }
 
 .preview-body {
