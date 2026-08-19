@@ -1,6 +1,6 @@
 package com.fei.feiaizerocodedevelopment.ai;
 
-import com.fei.feiaizerocodedevelopment.ai.tools.FileWriteTool;
+import com.fei.feiaizerocodedevelopment.ai.tools.*;
 import com.fei.feiaizerocodedevelopment.exception.BusinessException;
 import com.fei.feiaizerocodedevelopment.exception.ErrorCode;
 import com.fei.feiaizerocodedevelopment.model.enums.CodeGenTypeEnum;
@@ -41,6 +41,9 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ToolManager toolManager;
 
     /**
      * AI 服务实例缓存
@@ -107,7 +110,7 @@ public class AiCodeGeneratorServiceFactory {
                     .chatModel(chatModel)
                     .streamingChatModel(reasoningStreamingChatModel)
                     .chatMemoryProvider(memoryId -> chatMemory)
-                    .tools(new FileWriteTool())
+                    .tools(toolManager.getAllTools())
                     // 处理工具调用幻觉问题
                     .hallucinatedToolNameStrategy(toolExecutionRequest ->
                             ToolExecutionResultMessage.from(toolExecutionRequest,
