@@ -16,6 +16,8 @@ import com.fei.feiaizerocodedevelopment.model.dto.app.*;
 import com.fei.feiaizerocodedevelopment.model.entity.App;
 import com.fei.feiaizerocodedevelopment.model.entity.User;
 import com.fei.feiaizerocodedevelopment.model.vo.AppVO;
+import com.fei.feiaizerocodedevelopment.ratelimter.annotation.RateLimit;
+import com.fei.feiaizerocodedevelopment.ratelimter.enums.RateLimitType;
 import com.fei.feiaizerocodedevelopment.service.AppService;
 import com.fei.feiaizerocodedevelopment.service.ProjectDownloadService;
 import com.fei.feiaizerocodedevelopment.service.UserService;
@@ -55,6 +57,7 @@ public class AppController {
     private ProjectDownloadService projectDownloadService;
 
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI对话请求过于频繁，请稍后再试")
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                       @RequestParam String message,
                                       HttpServletRequest request) {

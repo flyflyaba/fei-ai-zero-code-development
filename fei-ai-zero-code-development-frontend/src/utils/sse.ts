@@ -4,6 +4,8 @@ export interface SSEHandlers {
   onMessage: (data: string) => void
   onDone?: () => void
   onError?: (error: Error) => void
+  /** 处理 business-error 事件（后端限流等业务错误） */
+  onBusinessError?: (errorData: { message?: string }) => void
 }
 
 /** 解析后端 SSE data 字段：格式为 {"d":"内容片段"} */
@@ -35,15 +37,33 @@ function parseSSEEventBlock(block: string): { event?: string; data?: string } {
   return { event, data }
 }
 
-function handleSSEBlock(block: string, onMessage: (data: string) => void) {
+/** 返回 true 表示收到 business-error 事件 */
+function handleSSEBlock(
+  block: string,
+  onMessage: (data: string) => void,
+  onBusinessError?: SSEHandlers['onBusinessError'],
+): boolean {
   const { event, data } = parseSSEEventBlock(block)
+  if (event === 'business-error') {
+    let errorData: { message?: string } = {}
+    if (data) {
+      try {
+        errorData = JSON.parse(data)
+      } catch {
+        // 解析失败时由调用方使用默认提示
+      }
+    }
+    onBusinessError?.(errorData)
+    return true
+  }
   if (event === 'done' || !data) {
-    return
+    return false
   }
   const content = parseSSEData(data)
   if (content) {
     onMessage(content)
   }
+  return false
 }
 
 /**
@@ -54,7 +74,7 @@ export async function chatToGenCodeSSE(
   message: string,
   handlers: SSEHandlers,
 ): Promise<void> {
-  const { onMessage, onDone, onError } = handlers
+  const { onMessage, onDone, onError, onBusinessError } = handlers
   const url = `${API_BASE_URL}/app/chat/gen/code?appId=${appId}&message=${encodeURIComponent(message)}`
 
   try {
@@ -96,6 +116,7 @@ export async function chatToGenCodeSSE(
 
     const decoder = new TextDecoder()
     let buffer = ''
+    let businessErrorOccurred = false
 
     while (true) {
       const { done, value } = await reader.read()
@@ -109,16 +130,21 @@ export async function chatToGenCodeSSE(
 
       for (const eventBlock of events) {
         if (eventBlock.trim()) {
-          handleSSEBlock(eventBlock, onMessage)
+          if (handleSSEBlock(eventBlock, onMessage, onBusinessError)) {
+            businessErrorOccurred = true
+          }
         }
       }
     }
 
-    if (buffer.trim()) {
-      handleSSEBlock(buffer, onMessage)
+    if (buffer.trim() && handleSSEBlock(buffer, onMessage, onBusinessError)) {
+      businessErrorOccurred = true
     }
 
-    onDone?.()
+    // 业务错误（如限流）后不触发 onDone，避免误走"生成完成"逻辑
+    if (!businessErrorOccurred) {
+      onDone?.()
+    }
   } catch (error) {
     onError?.(error instanceof Error ? error : new Error('网络异常，请确认后端已启动'))
   }

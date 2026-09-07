@@ -11,7 +11,7 @@ import {
   InfoCircleOutlined,
   PaperClipOutlined,
   ThunderboltOutlined,
-  DownloadOutlined
+  DownloadOutlined,
 } from '@ant-design/icons-vue'
 import { deleteApp, deployApp, getAppVoById } from '@/api/appController.ts'
 import { listAppChatHistory } from '@/api/chatHistoryController.ts'
@@ -273,6 +273,15 @@ const sendMessage = async (text: string) => {
       generating.value = false
       stopStatusCycle()
       message.error('生成失败：' + error.message)
+    },
+    onBusinessError: (errorData) => {
+      // 处理 business-error 事件（后端限流等业务错误）
+      generating.value = false
+      stopStatusCycle()
+      const errorMessage = errorData.message || '生成过程中出现错误'
+      messages.value[aiIndex].content = `❌ ${errorMessage}`
+      message.error(errorMessage)
+      scrollToBottom()
     },
   })
 }
