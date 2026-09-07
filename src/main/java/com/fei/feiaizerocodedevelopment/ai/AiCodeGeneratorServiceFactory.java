@@ -1,5 +1,6 @@
 package com.fei.feiaizerocodedevelopment.ai;
 
+import com.fei.feiaizerocodedevelopment.ai.guardrail.PromptSafetyInputGuardrail;
 import com.fei.feiaizerocodedevelopment.ai.tools.*;
 import com.fei.feiaizerocodedevelopment.exception.BusinessException;
 import com.fei.feiaizerocodedevelopment.exception.ErrorCode;
@@ -114,6 +115,7 @@ public class AiCodeGeneratorServiceFactory {
                                 ToolExecutionResultMessage.from(toolExecutionRequest,
                                         "Error: there is no tool called " + toolExecutionRequest.name())
                         )
+                        .inputGuardrails(new PromptSafetyInputGuardrail()) // 添加输入护轨
                         .build();
             }
             // HTML和多文件生成，使用流式对话模型
@@ -124,6 +126,7 @@ public class AiCodeGeneratorServiceFactory {
                         .chatModel(chatModel)
                         .streamingChatModel(openAiStreamingChatModel)
                         .chatMemory(chatMemory)
+                        .inputGuardrails(new PromptSafetyInputGuardrail()) // 添加输入护轨
                         .build();
             }
             default ->
